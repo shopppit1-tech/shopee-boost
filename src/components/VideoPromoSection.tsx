@@ -181,7 +181,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
     setIsGeneratingTts(true);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s max
+    const timeoutId = setTimeout(() => controller.abort(), 35000); // Gemini atau Cloudflare fallback membutuhkan waktu lebih lama
 
     try {
       const textToSpeak = getFullNarrationText();
