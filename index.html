@@ -14,87 +14,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Shopee Boost" />
-    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%pwa-192x192.png" />
-    <link rel="icon" type="image/svg+xml" href="%BASE_URL%icon.svg" />
+    <link rel="manifest" href="/shopee-boost/manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/shopee-boost/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/shopee-boost/pwa-192x192.png" />
+    <link rel="icon" type="image/svg+xml" href="/shopee-boost/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    <style>
-      #app-splash {
-        position: fixed;
-        inset: 0;
-        background: #ffffff;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 99999;
-        transition: opacity 0.4s ease-out, visibility 0.4s ease-out;
-      }
-      #app-splash.fade-out {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
-      .splash-logo {
-        width: 96px;
-        height: 96px;
-        border-radius: 24px;
-        box-shadow: 0 10px 25px -5px rgba(238, 77, 45, 0.35);
-        animation: pulseLogo 1.6s ease-in-out infinite alternate;
-      }
-      .splash-title {
-        margin-top: 18px;
-        font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-        font-size: 20px;
-        font-weight: 800;
-        color: #1e293b;
-        letter-spacing: -0.02em;
-      }
-      .splash-subtitle {
-        margin-top: 4px;
-        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        color: #64748b;
-      }
-      .splash-spinner {
-        margin-top: 24px;
-        width: 28px;
-        height: 28px;
-        border: 3px solid #fecdd3;
-        border-top-color: #ee4d2d;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-      @keyframes autoDismissSplash {
-        0%, 80% { opacity: 1; visibility: visible; }
-        100% { opacity: 0; visibility: hidden; pointer-events: none; }
-      }
-      #app-splash {
-        animation: autoDismissSplash 1.2s ease-out forwards;
-      }
-      @keyframes pulseLogo {
-        0% { transform: scale(0.96); }
-        100% { transform: scale(1.04); }
-      }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-    </style>
-  </head>
+    <style>#app-splash{z-index:99999;background:#fff;flex-direction:column;justify-content:center;align-items:center;transition:opacity .4s ease-out,visibility .4s ease-out;display:flex;position:fixed;inset:0}#app-splash.fade-out{opacity:0;visibility:hidden;pointer-events:none}.splash-logo{border-radius:24px;width:96px;height:96px;animation:1.6s ease-in-out infinite alternate pulseLogo;box-shadow:0 10px 25px -5px #ee4d2d59}.splash-title{color:#1e293b;letter-spacing:-.02em;margin-top:18px;font-family:Space Grotesk,system-ui,-apple-system,sans-serif;font-size:20px;font-weight:800}.splash-subtitle{color:#64748b;margin-top:4px;font-family:Plus Jakarta Sans,system-ui,-apple-system,sans-serif;font-size:12px;font-weight:500}.splash-spinner{border:3px solid #fecdd3;border-top-color:#ee4d2d;border-radius:50%;width:28px;height:28px;margin-top:24px;animation:.8s linear infinite spin}@keyframes autoDismissSplash{0%,80%{opacity:1;visibility:visible}to{opacity:0;visibility:hidden;pointer-events:none}}#app-splash{animation:1.2s ease-out forwards autoDismissSplash}@keyframes pulseLogo{0%{transform:scale(.96)}to{transform:scale(1.04)}}@keyframes spin{to{transform:rotate(360deg)}}</style>
+    <script type="module" crossorigin src="/shopee-boost/assets/index-Epyl7F2P.js"></script>
+    <link rel="stylesheet" crossorigin href="/shopee-boost/assets/index-cBlF85uM.css">
+  <link rel="manifest" href="/shopee-boost/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/shopee-boost/registerSW.js"></script></head>
   <body>
     <!-- APK / App Launch Splash Screen -->
     <div id="app-splash" aria-hidden="true">
-      <img src="%BASE_URL%pwa-192x192.png" alt="Shopee Boost" class="splash-logo" />
+      <img src="/shopee-boost/pwa-192x192.png" alt="Shopee Boost" class="splash-logo" />
       <div class="splash-title">Shopee <span style="color: #ee4d2d;">Boost</span></div>
       <div class="splash-subtitle">Memuat Aplikasi AI Seller...</div>
       <div class="splash-spinner"></div>
     </div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
     <script>
       function hideSplash() {
         var splash = document.getElementById('app-splash');

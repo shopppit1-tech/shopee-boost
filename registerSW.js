@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/shopee-boost/sw.js', { scope: '/shopee-boost/' })})}
