@@ -8,6 +8,6 @@ Frontend statis PWA Shopee Boost yang dipublikasikan melalui GitHub Pages. API, 
 
 ## Deployment
 
-Push ke branch `main` akan menjalankan GitHub Actions, membangun Vite dengan `VITE_BASE_PATH=/shopee-boost/`, lalu memublikasikan direktori `dist/` ke GitHub Pages. Variabel `VITE_API_BASE_URL` pada workflow menunjuk ke layanan Render.
+GitHub Pages mengambil file statis langsung dari branch `main`, folder root. Untuk memperbarui halaman, bangun frontend dengan `VITE_BASE_PATH=/shopee-boost/` dan `VITE_API_BASE_URL=https://shopeeboost-ai-studio.onrender.com`, lalu salin isi `dist/` ke root dan push ke `main`.
 
 Repo ini hanya berisi frontend dan aset publik; tidak menyertakan server backend atau kredensial. Untuk mengubah API/server, gunakan repo privat `shopppit1-tech/shopeeboost-ai-studio`.
