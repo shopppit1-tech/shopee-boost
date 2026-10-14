@@ -19,6 +19,8 @@ const featureCards = [
 ];
 
 export default function App() {
+  const currentHour = new Date().getHours();
+  const greeting = currentHour < 11 ? 'Selamat pagi' : currentHour < 15 ? 'Selamat siang' : currentHour < 18 ? 'Selamat sore' : 'Selamat malam';
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
@@ -67,7 +69,7 @@ export default function App() {
         <Header />
         <main className="px-5 pb-28 sm:px-7">
           <section className="animate-rise pt-6">
-            <h1 className="font-display text-[34px] font-bold leading-[1.08] tracking-[-0.065em] text-[#101c3c]">Selamat pagi, Seller!</h1>
+            <h1 className="font-display text-[34px] font-bold leading-[1.08] tracking-[-0.065em] text-[#101c3c]">{greeting}, Seller!</h1>
             <p className="mt-2 text-[17px] font-medium text-[#62697c]">Optimalkan toko dengan AI</p>
           </section>
 
