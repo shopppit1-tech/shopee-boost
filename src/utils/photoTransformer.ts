@@ -222,6 +222,31 @@ export function extractProductCutout(
   return canvas;
 }
 
+function getVisibleBounds(source: CanvasImageSource): { sx: number; sy: number; sw: number; sh: number } | null {
+  if (!(source instanceof HTMLCanvasElement)) return null;
+  const ctx = source.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const { width, height } = source;
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  for (let y = 0; y < height; y += 2) {
+    for (let x = 0; x < width; x += 2) {
+      if (pixels[(y * width + x) * 4 + 3] > 24) {
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (maxX < 0 || maxY < 0) return null;
+  const padX = Math.round((maxX - minX) * 0.08);
+  const padY = Math.round((maxY - minY) * 0.08);
+  const sx = Math.max(0, minX - padX);
+  const sy = Math.max(0, minY - padY);
+  const ex = Math.min(width - 1, maxX + padX);
+  const ey = Math.min(height - 1, maxY + padY);
+  return { sx, sy, sw: ex - sx + 1, sh: ey - sy + 1 };
+}
+
 /**
  * Draws a realistic contact and directional floor shadow beneath the product
  */
@@ -321,20 +346,24 @@ export async function transformProductPhoto(
     renderSource = extractProductCutout(productImg, adjustments.cutoutThreshold);
   }
 
+  const visibleBounds = getVisibleBounds(renderSource);
+  const sourceWidth = visibleBounds?.sw || productImg.naturalWidth || productImg.width || targetSize;
+  const sourceHeight = visibleBounds?.sh || productImg.naturalHeight || productImg.height || targetSize;
+
   // 3. Calculate Product Placement & Dimensions
   const baseScale = backdropConfig.defaultZoom * adjustments.zoom;
-  const pWidth = (productImg.naturalWidth || productImg.width || targetSize);
-  const pHeight = (productImg.naturalHeight || productImg.height || targetSize);
+  const pWidth = sourceWidth;
+  const pHeight = sourceHeight;
   const aspect = pWidth / pHeight;
 
   let drawW: number;
   let drawH: number;
 
   if (aspect >= 1) {
-    drawW = targetSize * 0.72 * baseScale;
+    drawW = targetSize * 0.86 * baseScale;
     drawH = drawW / aspect;
   } else {
-    drawH = targetSize * 0.72 * baseScale;
+    drawH = targetSize * 0.86 * baseScale;
     drawW = drawH * aspect;
   }
 
@@ -380,7 +409,11 @@ export async function transformProductPhoto(
   const s = 100 + adjustments.saturation;
   ctx.filter = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
 
-  ctx.drawImage(renderSource, -drawW / 2, -drawH / 2, drawW, drawH);
+  if (visibleBounds) {
+    ctx.drawImage(renderSource, visibleBounds.sx, visibleBounds.sy, visibleBounds.sw, visibleBounds.sh, -drawW / 2, -drawH / 2, drawW, drawH);
+  } else {
+    ctx.drawImage(renderSource, -drawW / 2, -drawH / 2, drawW, drawH);
+  }
   ctx.restore();
 
   // Export as high-quality Data URL
