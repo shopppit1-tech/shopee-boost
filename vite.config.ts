@@ -22,7 +22,6 @@ export default defineConfig(() => {
           theme_color: '#EE4D2D',
           background_color: '#FFFFFF',
           display: 'standalone',
-          display_override: ['fullscreen', 'standalone'],
           start_url: basePath,
           scope: basePath,
           icons: [
