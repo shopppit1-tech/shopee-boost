@@ -41,7 +41,7 @@ export default function App() {
   };
   const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const handleCopyText = (text: string, title: string) => navigator.clipboard?.writeText(text).then(() => addToast('success', `${title} Berhasil Disalin!`, 'Siap ditempel ke Shopee Seller Centre.'));
-  const handleImageSelected = (base64: string) => { setSelectedImage(base64); addToast('info', 'Foto Berhasil Dioptimasi', 'Siap diproses oleh AI.'); };
+  const handleImageSelected = (base64: string) => { setSelectedImage(base64); setActiveTransformedPhoto(''); addToast('info', 'Foto Berhasil Dioptimasi', 'Siap diproses oleh AI.'); };
   const handleClearImage = () => { setSelectedImage(null); setAnalysisResult(null); setActiveTransformedPhoto(''); };
 
   const handleAnalyze = async (options: { productHint: string }) => {
