@@ -10,7 +10,6 @@ import { AnalysisResult } from './types';
 import { PhotoTransformSection } from './components/PhotoTransformSection';
 import { apiUrl } from './utils/api';
 
-const heroProduct = 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=900&auto=format&fit=crop&q=85';
 const featureCards = [
   { title: 'Studio Foto', description: 'Foto produk lebih profesional', icon: Camera, color: 'bg-[#ffe8e8] text-[#e95353]', target: 'studio' },
   { title: 'Banner Shopee', description: 'Buat banner iklan siap pakai', icon: ImageIcon, color: 'bg-[#fff0e5] text-[#ef6a28]', target: 'banner' },
@@ -81,7 +80,12 @@ export default function App() {
                 <p className="mt-3 text-[12px] font-medium leading-5 text-[#687083]">Satu foto untuk banner, SEO, dan video</p>
                 <button type="button" onClick={() => scrollTo(workspaceRef)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#ee4d2d] px-5 py-3 text-[13px] font-extrabold text-white shadow-[0_9px_18px_rgba(238,77,45,.24)] transition hover:bg-[#d9371b] active:scale-95">Mulai sekarang <ArrowRight className="h-4 w-4" /></button>
               </div>
-              <div className="absolute -bottom-4 -right-5 h-[225px] w-[220px] overflow-hidden rounded-tl-[90px] bg-[#ead9c8]"><img src={heroProduct} alt="Contoh produk untuk materi jualan" className="h-full w-full object-cover" /></div>
+              <div aria-hidden="true" className="absolute -bottom-4 -right-5 flex h-[225px] w-[220px] items-center justify-center rounded-tl-[90px] bg-gradient-to-br from-[#f5ddc7] to-[#e8c1a4]">
+                <div className="relative flex h-28 w-28 rotate-[-8deg] items-center justify-center rounded-[28px] border border-white/80 bg-white/75 shadow-xl backdrop-blur-sm">
+                  <ImageIcon className="h-14 w-14 text-[#ee4d2d]" />
+                  <span className="absolute -right-3 -top-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#ee4d2d] text-white shadow"><Sparkles className="h-4 w-4" /></span>
+                </div>
+              </div>
             </div>
             <div className="border-t border-[#f1e8e1] px-5 py-4"><p className="mb-3 text-[11px] font-bold text-[#7e7a82]">Unggah foto Anda untuk mulai membuat materi</p><UploadSection selectedImage={selectedImage} onImageSelected={handleImageSelected} onClearImage={handleClearImage} onAnalyze={handleAnalyze} isLoading={isLoading} loadingStep={loadingStep} onError={(message) => addToast('error', 'Peringatan', message)} /></div>
           </section>
