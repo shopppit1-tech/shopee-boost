@@ -3,7 +3,7 @@ import studioPodiumImg from '../assets/images/studio_podium_stage_1791842300943.
 import marbleTableImg from '../assets/images/marble_table_surface_1791842302583.jpg';
 import oakWoodImg from '../assets/images/oak_wood_table_1791842302519.jpg';
 import { extractProductCutout } from './photoTransformer';
-import { canvasToBlob, downloadBlob } from './download';
+import { downloadDataUrl } from './download';
 
 export type BannerStyleType = 'promo' | 'minimalis' | 'lifestyle';
 
@@ -494,7 +494,6 @@ export async function renderLifestyleBanner(
 /**
  * Downloads a canvas element as a PNG image file
  */
-export async function downloadCanvas(canvas: HTMLCanvasElement, filename: string): Promise<void> {
-  const blob = await canvasToBlob(canvas);
-  downloadBlob(blob, filename);
+export function downloadCanvas(canvas: HTMLCanvasElement, filename: string): void {
+  downloadDataUrl(canvas.toDataURL('image/png'), filename);
 }

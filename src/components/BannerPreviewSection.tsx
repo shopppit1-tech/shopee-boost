@@ -15,7 +15,6 @@ import {
   renderLifestyleBanner,
   downloadCanvas,
 } from '../utils/bannerGenerator';
-import { canvasToBlob, downloadFilesAsZip } from '../utils/download';
 
 interface BannerPreviewSectionProps {
   productImageSrc: string;
@@ -153,7 +152,7 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
 
     try {
       setDownloadError('');
-      await downloadCanvas(canvas, cleanFilename(label));
+      downloadCanvas(canvas, cleanFilename(label));
       onNotification(`${nameText} Berhasil Diunduh!`, 'File PNG 1080x1080 resolusi tinggi siap diunggah ke Shopee.');
     } catch (error) {
       console.error('Gagal mengunduh banner:', error);
@@ -172,13 +171,13 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
         [canvasLifestyleRef.current, '3_Edit_Tampilan_RealPic'],
       ] as const;
       if (canvases.some(([canvas]) => !canvas)) throw new Error('Tunggu sampai semua foto selesai dibuat.');
-      const files = await Promise.all(canvases.map(async ([canvas, label]) => ({
-        name: cleanFilename(label),
-        blob: await canvasToBlob(canvas!),
-      })));
-      const zipFilename = cleanFilename('Semua_Foto_Banner').replace(/\.png$/i, '.zip');
-      await downloadFilesAsZip(files, zipFilename);
-      onNotification('Semua Foto Banner Berhasil Diunduh!', 'Tiga desain tersimpan dalam satu file ZIP. Buka ZIP untuk melihat foto PNG.');
+      for (const [index, [canvas, label]] of canvases.entries()) {
+        downloadCanvas(canvas!, cleanFilename(label));
+        if (index < canvases.length - 1) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
+        }
+      }
+      onNotification('Semua Foto Banner Mulai Diunduh!', 'Ketiga PNG diunduh sebagai file terpisah. Jika browser meminta izin beberapa unduhan, pilih Izinkan.');
     } catch (err) {
       console.error('Error unduh semua foto:', err);
       setDownloadError(err instanceof Error ? err.message : 'Foto gagal diunduh. Coba lagi.');
@@ -201,6 +200,7 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">
             Foto 1 jadi Banner Utama (tanpa harga), Foto 2 & 3 edit percantik tampilan produk
           </p>
+          <p className="mt-1 text-[11px] text-slate-500">Disimpan sebagai tiga PNG terpisah. Jika browser meminta izin beberapa unduhan, pilih Izinkan.</p>
         </div>
 
         {/* Tombol Unduh Semua */}
@@ -213,12 +213,12 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
           {downloadingAll ? (
             <>
               <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Menyatukan 3 Foto...</span>
+              <span>Mengunduh 3 Foto...</span>
             </>
           ) : (
             <>
               <Download className="w-3.5 h-3.5" />
-              <span>Unduh 3 Foto (ZIP)</span>
+              <span>Unduh 3 Foto Satu per Satu</span>
             </>
           )}
         </button>

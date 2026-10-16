@@ -429,6 +429,7 @@ export async function recordPromoVideo(
 
   let audioCtx: AudioContext | null = null;
   let audioDestination: MediaStreamAudioDestinationNode | null = null;
+  let outputDurationSeconds = 10.2;
 
   try {
     audioCtx = new AudioContextClass();
@@ -449,6 +450,7 @@ export async function recordPromoVideo(
       try {
         const arrayBuffer = await audioOptions.narrationBlob.arrayBuffer();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        outputDurationSeconds = Math.max(outputDurationSeconds, audioBuffer.duration + 0.25);
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
 
@@ -466,7 +468,7 @@ export async function recordPromoVideo(
     // 2. Synthesize upbeat background groove (125 BPM) for 10 seconds if enabled
     if (audioOptions?.includeBgm !== false) {
       const stepDuration = 0.125;
-      const totalSteps = Math.ceil(10.2 / stepDuration);
+      const totalSteps = Math.ceil(outputDurationSeconds / stepDuration);
       const melody = [523.25, 659.25, 783.99, 1046.5, 783.99, 659.25, 880.0, 1046.5];
       const hasNarration = Boolean(audioOptions?.narrationBlob);
 
@@ -561,46 +563,46 @@ export async function recordPromoVideo(
   };
 
   return new Promise((resolve, reject) => {
+    let animationFrameId: number | null = null;
+    const cleanup = () => {
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      recordStream.getTracks().forEach((track) => track.stop());
+      if (audioCtx && audioCtx.state !== 'closed') audioCtx.close().catch(() => {});
+    };
+
     recorder.onstop = () => {
-      // Clean up audio context
-      if (audioCtx && audioCtx.state !== 'closed') {
-        audioCtx.close().catch(() => {});
-      }
       const blob = new Blob(chunks, { type: recorder.mimeType || chosenMime || 'video/webm' });
-      resolve(blob);
+      cleanup();
+      if (blob.size === 0) reject(new Error('File video kosong. Coba rekam ulang.'));
+      else resolve(blob);
     };
 
     recorder.onerror = (err) => {
-      if (audioCtx && audioCtx.state !== 'closed') {
-        audioCtx.close().catch(() => {});
-      }
+      cleanup();
       reject(err);
     };
 
-    recorder.start(100);
+    // Do not request short MediaRecorder slices: some MP4 encoders then emit fragmented MP4
+    // chunks whose duration/index is reported as 0 by uploaders. A single finalized recording
+    // lets the browser write complete container metadata on stop.
+    recorder.start();
 
-    const totalFrames = 300; // 30 fps * 10 seconds
-    let currentFrame = 0;
-    const intervalMs = 1000 / 30;
-
-    const timer = setInterval(() => {
-      currentFrame++;
-      const timeSec = (currentFrame / totalFrames) * 10.0;
-      drawVideoFrame(ctx, canvas.width, canvas.height, image, timeSec, config);
-
-      if (onProgress) {
-        onProgress(Math.min(100, Math.round((currentFrame / totalFrames) * 100)));
+    const startTime = performance.now();
+    let lastRenderSeconds = -1;
+    const renderFrame = (timestamp: number) => {
+      const elapsedSeconds = Math.max(0, (timestamp - startTime) / 1000);
+      if (lastRenderSeconds < 0 || elapsedSeconds - lastRenderSeconds >= 1 / 30 || elapsedSeconds >= outputDurationSeconds) {
+        drawVideoFrame(ctx, canvas.width, canvas.height, image, Math.min(10, elapsedSeconds), config);
+        lastRenderSeconds = elapsedSeconds;
+        onProgress?.(Math.min(100, Math.round((elapsedSeconds / outputDurationSeconds) * 100)));
       }
 
-      if (currentFrame >= totalFrames) {
-        clearInterval(timer);
-        setTimeout(() => {
-          if (recorder.state === 'recording') {
-            recorder.stop();
-          }
-        }, 200);
+      if (elapsedSeconds >= outputDurationSeconds) {
+        if (recorder.state === 'recording') recorder.stop();
+        return;
       }
-    }, intervalMs);
+      animationFrameId = requestAnimationFrame(renderFrame);
+    };
+    animationFrameId = requestAnimationFrame(renderFrame);
   });
 }
-

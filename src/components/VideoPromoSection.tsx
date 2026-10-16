@@ -31,6 +31,25 @@ import { promoAudio } from '../utils/audioSynth';
 import { loadImage } from '../utils/bannerGenerator';
 import { apiUrl } from '../utils/api';
 
+function readVideoDuration(url: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const timeout = window.setTimeout(() => finish(new Error('Metadata durasi MP4 tidak terbaca. Coba rekam ulang.')), 10_000);
+    const finish = (error?: Error) => {
+      window.clearTimeout(timeout);
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      if (error) reject(error);
+      else if (Number.isFinite(video.duration) && video.duration > 0) resolve(video.duration);
+      else reject(new Error('MP4 tidak memiliki durasi yang valid. Coba rekam ulang.'));
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => finish();
+    video.onerror = () => finish(new Error('Browser tidak dapat membaca metadata MP4 hasil rekaman.'));
+    video.src = url;
+  });
+}
+
 interface VideoPromoSectionProps {
   productImageSrc: string;
   analysisData: AnalysisResult;
@@ -46,6 +65,10 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
   initialStoreName = 'Toko Shopee Official',
   initialDiscount = '50%',
 }) => {
+  const supportsDirectMp4 = typeof MediaRecorder !== 'undefined' && [
+    'video/mp4;codecs=avc1,mp4a.40.2',
+    'video/mp4',
+  ].some((mimeType) => MediaRecorder.isTypeSupported(mimeType));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
@@ -368,8 +391,8 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
       }
 
       onNotification(
-        'Merekam Video 10 Detik Lengkap Suara...',
-        'Sedang menggabungkan video animasi HD, narasi suara AI, dan musik latar. Siap diupload langsung ke Shopee!'
+        'Merekam Video dengan Durasi Penuh...',
+        'Durasi ekspor mengikuti seluruh narasi AI agar suara tidak terpotong.'
       );
 
       const blob = await recordPromoVideo(
@@ -385,8 +408,11 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
         }
       );
 
-      // Determine proper file extension (.mp4 or .webm)
-      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+      const mimeType = blob.type.toLowerCase();
+      if (!mimeType.includes('video/mp4')) {
+        throw new Error('Browser ini hanya menghasilkan WebM, bukan MP4. Gunakan browser yang mendukung rekaman MP4 agar bisa langsung diunggah ke Shopee.');
+      }
+      const ext = 'mp4';
       const cleanProductName = (analysisData.productNameDetected || 'produk')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -395,18 +421,25 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
 
       // Trigger download
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        const duration = await readVideoDuration(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
-      onNotification(
-        'Video Berhasil Diunduh (Lengkap Suara)!',
-        'Video sudah memiliki suara narasi AI & musik. Langsung upload ke Shopee Video / TikTok tanpa perlu diedit lagi!'
-      );
+        onNotification(
+          'MP4 Berhasil Diunduh!',
+          `H.264/AAC, durasi ${duration.toFixed(1)} detik, seluruh narasi disertakan. Siap diunggah ke Shopee tanpa edit ulang.`
+        );
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        throw error;
+      }
     } catch (err: any) {
       console.error('Record error:', err);
       onNotification('Gagal merekam video', err.message || 'Silakan coba lagi');
@@ -643,11 +676,11 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadVideo}
-                disabled={isRecording}
+                disabled={isRecording || !supportsDirectMp4}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#EE4D2D] to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>{isRecording ? `Merekam (${recordProgress}%)...` : 'Unduh Video (10s)'}</span>
+                <span>{isRecording ? `Merekam (${recordProgress}%)...` : supportsDirectMp4 ? 'Unduh MP4 Full Durasi' : 'MP4 tidak didukung browser'}</span>
               </button>
             </div>
           </div>
@@ -668,15 +701,16 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 leading-snug mt-1">
-                  <strong>Simpel & praktis:</strong> Video 10 detik ini sudah otomatis digabung dengan narasi suara AI Bahasa Indonesia & musik latar. Tidak perlu edit lagi di CapCut atau aplikasi lain — langsung unduh dan pasang di Shopee Video!
+                  <strong>Simpel & praktis:</strong> Gerak visual promosi 10 detik, lalu durasi diperpanjang otomatis sampai seluruh narasi AI Bahasa Indonesia selesai. MP4 H.264/AAC siap diunggah tanpa edit di CapCut.
                 </p>
+                {!supportsDirectMp4 && <p role="status" className="mt-2 rounded-lg bg-amber-100 px-2.5 py-2 text-[11px] font-semibold text-amber-950">Browser ini tidak punya encoder MP4 langsung. Buka aplikasi dengan browser yang mendukung MP4 (misalnya Safari terbaru) agar unduhan siap Shopee.</p>}
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleDownloadVideo}
-              disabled={isRecording}
+              disabled={isRecording || !supportsDirectMp4}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#EE4D2D] via-orange-600 to-red-600 hover:from-[#d43f20] hover:to-red-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98 disabled:opacity-50"
             >
               {isRecording ? (
@@ -687,7 +721,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Unduh Video Langsung Ada Suara (Siap Upload Shopee)</span>
+                  <span>{supportsDirectMp4 ? 'Unduh MP4 dengan Suara (Siap Upload Shopee)' : 'MP4 perlu browser yang mendukung encoder MP4'}</span>
                 </>
               )}
             </button>

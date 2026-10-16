@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Download, Image as ImageIcon, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { apiUrl } from '../utils/api';
-import { dataUrlToBlob, downloadBlob, downloadFilesAsZip, imageExtension } from '../utils/download';
+import { downloadDataUrl, imageExtension } from '../utils/download';
 
 type PhotoVariant = {
   id: string;
@@ -151,28 +151,32 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
   };
 
   const downloadVariant = (variant: PhotoVariant) => {
-    void dataUrlToBlob(variant.dataUrl)
-      .then((blob) => downloadBlob(blob, `shopeeboost_ai_${variant.id}_${Date.now()}.${imageExtension(variant.dataUrl)}`))
-      .then(() => setDownloadError(''))
-      .catch((error: unknown) => {
-        setDownloadError(error instanceof Error ? error.message : 'Foto gagal diunduh. Coba lagi.');
-      });
+    try {
+      downloadDataUrl(variant.dataUrl, `shopeeboost_ai_${variant.id}_${Date.now()}.${imageExtension(variant.dataUrl)}`);
+      setDownloadError('');
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'Foto gagal diunduh. Coba lagi.');
+    }
   };
 
   const downloadAllPhotos = async () => {
     setIsDownloadingAll(true);
     setDownloadError('');
     try {
-      const originalBlob = await dataUrlToBlob(originalImageSrc);
-      const variantFiles = await Promise.all(variants.map(async (variant, index) => ({
-        name: `hasil_ai_${String(index + 1).padStart(2, '0')}_${variant.name.replace(/[^a-zA-Z0-9]+/g, '_')}.${imageExtension(variant.dataUrl)}`,
-        blob: await dataUrlToBlob(variant.dataUrl),
-      })));
-      await downloadFilesAsZip(
-        [{ name: `foto_asli.${imageExtension(originalImageSrc)}`, blob: originalBlob }, ...variantFiles],
-        `shopeeboost_semua_foto_${Date.now()}.zip`
-      );
-      onNotification('Semua Foto Berhasil Diunduh!', `${variants.length} hasil AI dan foto asli tersimpan dalam satu file ZIP.`);
+      const photos = [
+        { dataUrl: originalImageSrc, filename: `foto_asli.${imageExtension(originalImageSrc)}` },
+        ...variants.map((variant, index) => ({
+          dataUrl: variant.dataUrl,
+          filename: `hasil_ai_${String(index + 1).padStart(2, '0')}_${variant.name.replace(/[^a-zA-Z0-9]+/g, '_')}.${imageExtension(variant.dataUrl)}`,
+        })),
+      ];
+      for (const [index, photo] of photos.entries()) {
+        downloadDataUrl(photo.dataUrl, photo.filename);
+        if (index < photos.length - 1) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1_000));
+        }
+      }
+      onNotification('Semua Foto Mulai Diunduh!', `${photos.length} foto disimpan sebagai file gambar terpisah. Jika browser meminta izin beberapa unduhan, pilih Izinkan.`);
     } catch (error) {
       setDownloadError(error instanceof Error ? error.message : 'Foto gagal diunduh. Coba lagi.');
     } finally {
@@ -297,8 +301,9 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-950 px-4 py-3 text-xs font-extrabold text-white transition hover:bg-indigo-900 disabled:cursor-wait disabled:opacity-60"
                 >
                   {isDownloadingAll ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {isDownloadingAll ? 'Menyiapkan foto ZIP…' : `Unduh Semua Foto (${variants.length} AI + asli) — ZIP`}
+                  {isDownloadingAll ? 'Mengunduh foto satu per satu…' : `Unduh Semua Foto (${variants.length} AI + asli)`}
                 </button>
+                <p className="mt-2 text-center text-[11px] leading-relaxed text-slate-500">Setiap foto akan disimpan sebagai file terpisah. Jika browser meminta izin, pilih Izinkan beberapa unduhan.</p>
               </>
             ) : (
               <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">

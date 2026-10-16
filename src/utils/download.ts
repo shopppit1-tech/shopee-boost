@@ -1,41 +1,30 @@
-import JSZip from 'jszip';
-
-export interface DownloadFile {
-  name: string;
-  blob: Blob;
-}
-
-/** Start a browser download from a Blob and keep the object URL alive briefly for mobile browsers. */
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
+function clickDownload(href: string, filename: string): void {
   const link = document.createElement('a');
-  link.href = url;
+  link.href = href;
   link.download = filename;
   link.rel = 'noopener';
   link.style.display = 'none';
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+/** Starts one download and briefly retains the object URL for mobile browsers. */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  clickDownload(url, filename);
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export function canvasToBlob(canvas: HTMLCanvasElement, type = 'image/png'): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    try {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Browser tidak dapat menyiapkan file foto.'));
-      }, type);
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
-  const response = await fetch(dataUrl);
-  if (!response.ok) throw new Error('Foto tidak dapat dibaca untuk diunduh.');
-  return response.blob();
+/** Convert an image data URL synchronously so the download can start in the user's click event. */
+export function downloadDataUrl(dataUrl: string, filename: string): void {
+  const [metadata, payload] = dataUrl.split(',', 2);
+  if (!metadata || payload === undefined) throw new Error('Format foto tidak dikenali.');
+  const mimeType = metadata.match(/^data:([^;,]+)/i)?.[1] || 'application/octet-stream';
+  const binary = metadata.includes(';base64') ? atob(payload) : decodeURIComponent(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  downloadBlob(new Blob([bytes], { type: mimeType }), filename);
 }
 
 export function imageExtension(dataUrl: string): string {
@@ -43,18 +32,4 @@ export function imageExtension(dataUrl: string): string {
   if (mimeType === 'png') return 'png';
   if (mimeType === 'webp') return 'webp';
   return 'jpg';
-}
-
-/** Download a collection in one user gesture, avoiding browsers that block multiple downloads. */
-export async function downloadFilesAsZip(files: DownloadFile[], filename: string): Promise<void> {
-  if (!files.length) throw new Error('Belum ada foto yang siap diunduh.');
-  const zip = new JSZip();
-  files.forEach(({ name, blob }) => zip.file(name, blob));
-  const blob = await zip.generateAsync({
-    type: 'blob',
-    mimeType: 'application/zip',
-    compression: 'DEFLATE',
-    compressionOptions: { level: 6 },
-  });
-  downloadBlob(blob, filename);
 }
