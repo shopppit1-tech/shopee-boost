@@ -74,8 +74,35 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
         throw new Error(payload?.error || 'API belum berhasil mengedit foto. Coba lagi sebentar.');
       }
 
-      const generatedVariants = Array.isArray(payload.variants)
-        ? payload.variants.filter(
+      let resultPayload = payload;
+      if (payload.status === 'processing' && typeof payload.taskId === 'string') {
+        const taskId = payload.taskId;
+        const pollDeadline = Date.now() + 165_000;
+        while (Date.now() < pollDeadline) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 5_000));
+          const pollResponse = await fetch(apiUrl(`/api/generate-photo-variants/${encodeURIComponent(taskId)}`), {
+            method: 'GET',
+            signal: controller.signal,
+          });
+          const pollPayload = await pollResponse.json().catch(() => null);
+          if (!pollResponse.ok || !pollPayload?.success) {
+            throw new Error(pollPayload?.error || 'Tidak dapat mengambil hasil foto dari Manus.');
+          }
+          if (pollPayload.status === 'failed') {
+            throw new Error(pollPayload.error || 'Manus belum berhasil membuat foto. Coba lagi.');
+          }
+          if (pollPayload.status === 'completed') {
+            resultPayload = pollPayload;
+            break;
+          }
+        }
+        if (resultPayload.status !== 'completed') {
+          throw new Error('Manus masih memproses foto. Coba lagi sebentar; prosesnya mungkin masih berjalan.');
+        }
+      }
+
+      const generatedVariants = Array.isArray(resultPayload.variants)
+        ? resultPayload.variants.filter(
             (variant: unknown): variant is PhotoVariant =>
               Boolean(
                 variant &&
@@ -96,7 +123,7 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
       onSelectVersion(generatedVariants[0].dataUrl, generatedVariants[0].name);
 
       if (generatedVariants.length < 3) {
-        setWarningMessage(payload.warning || `Baru ${generatedVariants.length} dari 3 varian berhasil dibuat. Anda bisa mencoba lagi untuk membuat ulang ketiganya.`);
+        setWarningMessage(resultPayload.warning || `Baru ${generatedVariants.length} dari 3 varian berhasil dibuat. Anda bisa mencoba lagi untuk membuat ulang ketiganya.`);
       } else {
         onNotification('3 Varian Foto AI Siap', 'Pilih hasil yang paling cocok. Foto AI ini juga akan dipakai pada banner dan video.');
       }
@@ -137,11 +164,11 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-300/25 bg-indigo-400/15 px-3 py-1 text-xs font-semibold text-indigo-200">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>AI Edit Foto Produk</span>
+              <span>Manus AI Edit Foto Produk</span>
             </div>
             <h2 className="text-xl font-black tracking-tight sm:text-2xl">Buat 3 Versi Baru Foto Iklan</h2>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              AI membuat tiga pemotretan produk baru dengan sudut, komposisi, dan konteks berbeda—bukan sekadar ganti latar. Produk tetap dikenali, tanpa bingkai atau tulisan tempelan.
+              Manus membuat tiga pemotretan produk baru dengan sudut, komposisi, dan konteks berbeda—bukan sekadar ganti latar. Produk tetap dikenali, tanpa bingkai atau tulisan tempelan.
             </p>
           </div>
           <button
@@ -151,7 +178,7 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#EE4D2D] px-4 py-3 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#D9381D] disabled:cursor-wait disabled:opacity-70"
           >
             {isGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : variants.length ? <RefreshCw className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-            <span>{isGenerating ? 'AI sedang mengedit…' : variants.length ? 'Buat Ulang 3 Varian' : 'Buat 3 Varian AI'}</span>
+            <span>{isGenerating ? 'Manus sedang membuat…' : variants.length ? 'Buat Ulang 3 Varian' : 'Buat 3 Varian AI'}</span>
           </button>
         </div>
       </div>
@@ -168,7 +195,7 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
               {(isGenerating || !variants.length) && (
                 <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-slate-950/75 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm">
                   {isGenerating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                  <span>{isGenerating ? 'Membuat tiga konsep foto iklan dari foto asli…' : 'Foto asli — tekan “Buat 3 Varian AI” untuk mulai mengedit'}</span>
+                  <span>{isGenerating ? 'Manus sedang membuat tiga konsep foto iklan baru dari foto asli…' : 'Foto asli — tekan “Buat 3 Varian AI” untuk mulai mengedit'}</span>
                 </div>
               )}
               {variants.length > 0 && (
