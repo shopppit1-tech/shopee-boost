@@ -317,12 +317,6 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
               </div>
             )}
 
-            {isGenerating && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50 px-3.5 py-3 text-xs leading-relaxed text-indigo-900">
-                <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
-                <span>Proses ini memakai API gambar AI dan dapat memerlukan waktu. Hasil akan muncul setelah API menyelesaikan tiga konsep edit.</span>
-              </div>
-            )}
             {warningMessage && <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-900">{warningMessage}</p>}
             {errorMessage && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs leading-relaxed text-rose-800">{errorMessage}</p>}
             {downloadError && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs leading-relaxed text-rose-800">{downloadError}</p>}
