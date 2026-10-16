@@ -67,16 +67,6 @@ export interface BannerSettings {
   photoMode?: 'full' | 'contain';
 }
 
-export interface SampleProduct {
-  id: string;
-  name: string;
-  category: string;
-  hint: string;
-  image: string;
-  price: string;
-  discount: string;
-}
-
 export type PhotoBackdropId =
   | 'podium'
   | 'marble'
@@ -107,4 +97,3 @@ export interface TransformedPhotoVersion {
   badge: string;
   dataUrl: string;
 }
-

@@ -7,9 +7,6 @@ import {
   X,
   FileImage,
 } from 'lucide-react';
-import { SAMPLE_PRODUCTS } from '../data/samples';
-import { SampleProduct } from '../types';
-
 import { compressImageFile } from '../utils/imageCompressor';
 
 interface UploadSectionProps {
@@ -94,25 +91,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     if (file) {
       processFile(file);
     }
-  };
-
-  const handleSampleClick = (sample: SampleProduct) => {
-    fetch(sample.image)
-      .then((res) => res.blob())
-      .then((blob) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          onImageSelected(reader.result as string, {
-            name: `${sample.name}.jpg`,
-            size: 'Sample',
-          });
-          setProductHint(sample.hint);
-        };
-        reader.readAsDataURL(blob);
-      })
-      .catch((err) => {
-        console.error('Failed to load sample image:', err);
-      });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -254,30 +232,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           />
         </div>
 
-        {/* 1-Click Coba Contoh Foto */}
+        {/* Judul contoh produk dipertahankan sesuai permintaan */}
         <div className="space-y-2 border-t border-slate-100 pt-3">
           <p className="text-xs font-semibold text-slate-500">
             Atau coba cepat dengan contoh produk:
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {SAMPLE_PRODUCTS.map((sample) => (
-              <button
-                key={sample.id}
-                type="button"
-                onClick={() => handleSampleClick(sample)}
-                className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all text-left cursor-pointer"
-              >
-                <img
-                  src={sample.image}
-                  alt={sample.name}
-                  className="w-8 h-8 rounded-lg object-cover bg-white shrink-0"
-                />
-                <span className="text-[11px] font-semibold text-slate-700 truncate">
-                  {sample.name}
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Tombol Proses Utama Sederhana */}
