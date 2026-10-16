@@ -232,13 +232,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           />
         </div>
 
-        {/* Judul contoh produk dipertahankan sesuai permintaan */}
-        <div className="space-y-2 border-t border-slate-100 pt-3">
-          <p className="text-xs font-semibold text-slate-500">
-            Atau coba cepat dengan contoh produk:
-          </p>
-        </div>
-
         {/* Tombol Proses Utama Sederhana */}
         <div className="pt-1">
           <button
