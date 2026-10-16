@@ -15,6 +15,7 @@ import {
   renderLifestyleBanner,
   downloadCanvas,
 } from '../utils/bannerGenerator';
+import { canvasToBlob, downloadFilesAsZip } from '../utils/download';
 
 interface BannerPreviewSectionProps {
   productImageSrc: string;
@@ -39,6 +40,7 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
 
   const [loadedImage, setLoadedImage] = useState<HTMLImageElement | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
   // Banner settings (Tanpa harga)
@@ -133,7 +135,7 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
     return `${safe}_${label}.png`;
   };
 
-  const handleDownloadSingle = (label: string) => {
+  const handleDownloadSingle = async (label: string) => {
     let canvas: HTMLCanvasElement | null = null;
     let nameText = '';
     if (label.includes('1_') || label === '1_Banner_Utama') {
@@ -149,31 +151,37 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
 
     if (!canvas) return;
 
-    downloadCanvas(canvas, cleanFilename(label));
-    onNotification(`${nameText} Berhasil Diunduh!`, 'File PNG 1080x1080 resolusi tinggi siap diunggah ke Shopee.');
+    try {
+      setDownloadError('');
+      await downloadCanvas(canvas, cleanFilename(label));
+      onNotification(`${nameText} Berhasil Diunduh!`, 'File PNG 1080x1080 resolusi tinggi siap diunggah ke Shopee.');
+    } catch (error) {
+      console.error('Gagal mengunduh banner:', error);
+      setDownloadError('Foto gagal diunduh. Coba lagi atau periksa ruang penyimpanan perangkat.');
+    }
   };
 
 
   const handleDownloadAll = async () => {
     setDownloadingAll(true);
+    setDownloadError('');
     try {
-      if (canvasPromoRef.current) {
-        downloadCanvas(canvasPromoRef.current, cleanFilename('1_Banner_Utama'));
-      }
-      await new Promise((r) => setTimeout(r, 350));
-
-      if (canvasMinimalistRef.current) {
-        downloadCanvas(canvasMinimalistRef.current, cleanFilename('2_Edit_Tampilan_Studio'));
-      }
-      await new Promise((r) => setTimeout(r, 350));
-
-      if (canvasLifestyleRef.current) {
-        downloadCanvas(canvasLifestyleRef.current, cleanFilename('3_Edit_Tampilan_RealPic'));
-      }
-
-      onNotification('Ketiga Foto & Banner Berhasil Diunduh!', '1 Banner Utama & 2 Foto Tampilan Telah Disimpan.');
+      const canvases = [
+        [canvasPromoRef.current, '1_Banner_Utama'],
+        [canvasMinimalistRef.current, '2_Edit_Tampilan_Studio'],
+        [canvasLifestyleRef.current, '3_Edit_Tampilan_RealPic'],
+      ] as const;
+      if (canvases.some(([canvas]) => !canvas)) throw new Error('Tunggu sampai semua foto selesai dibuat.');
+      const files = await Promise.all(canvases.map(async ([canvas, label]) => ({
+        name: cleanFilename(label),
+        blob: await canvasToBlob(canvas!),
+      })));
+      const zipFilename = cleanFilename('Semua_Foto_Banner').replace(/\.png$/i, '.zip');
+      await downloadFilesAsZip(files, zipFilename);
+      onNotification('Semua Foto Banner Berhasil Diunduh!', 'Tiga desain tersimpan dalam satu file ZIP. Buka ZIP untuk melihat foto PNG.');
     } catch (err) {
       console.error('Error unduh semua foto:', err);
+      setDownloadError(err instanceof Error ? err.message : 'Foto gagal diunduh. Coba lagi.');
     } finally {
       setDownloadingAll(false);
     }
@@ -205,17 +213,18 @@ export const BannerPreviewSection: React.FC<BannerPreviewSectionProps> = ({
           {downloadingAll ? (
             <>
               <Check className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Mengunduh 3 File...</span>
+              <span>Menyatukan 3 Foto...</span>
             </>
           ) : (
             <>
               <Download className="w-3.5 h-3.5" />
-              <span>Unduh 3 Foto Sekaligus</span>
+              <span>Unduh 3 Foto (ZIP)</span>
             </>
           )}
         </button>
       </div>
 
+      {downloadError && <p role="alert" className="mx-5 -mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800">{downloadError}</p>}
       <div className="p-5 sm:p-6 space-y-5">
         {/* Toggle Pengaturan Sederhana */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">

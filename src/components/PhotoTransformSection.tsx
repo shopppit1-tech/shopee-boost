@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Download, Image as ImageIcon, LoaderCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { apiUrl } from '../utils/api';
+import { dataUrlToBlob, downloadBlob, downloadFilesAsZip, imageExtension } from '../utils/download';
 
 type PhotoVariant = {
   id: string;
@@ -26,12 +27,15 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isShowingOriginal, setIsShowingOriginal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [downloadError, setDownloadError] = useState('');
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
 
   useEffect(() => {
     setVariants([]);
     setSelectedVariantId(null);
     setErrorMessage('');
+    setDownloadError('');
     setWarningMessage('');
     setIsShowingOriginal(false);
   }, [originalImageSrc]);
@@ -147,11 +151,33 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
   };
 
   const downloadVariant = (variant: PhotoVariant) => {
-    const link = document.createElement('a');
-    const extension = variant.dataUrl.startsWith('data:image/png') ? 'png' : 'jpg';
-    link.download = `shopeeboost_ai_${variant.id}_${Date.now()}.${extension}`;
-    link.href = variant.dataUrl;
-    link.click();
+    void dataUrlToBlob(variant.dataUrl)
+      .then((blob) => downloadBlob(blob, `shopeeboost_ai_${variant.id}_${Date.now()}.${imageExtension(variant.dataUrl)}`))
+      .then(() => setDownloadError(''))
+      .catch((error: unknown) => {
+        setDownloadError(error instanceof Error ? error.message : 'Foto gagal diunduh. Coba lagi.');
+      });
+  };
+
+  const downloadAllPhotos = async () => {
+    setIsDownloadingAll(true);
+    setDownloadError('');
+    try {
+      const originalBlob = await dataUrlToBlob(originalImageSrc);
+      const variantFiles = await Promise.all(variants.map(async (variant, index) => ({
+        name: `hasil_ai_${String(index + 1).padStart(2, '0')}_${variant.name.replace(/[^a-zA-Z0-9]+/g, '_')}.${imageExtension(variant.dataUrl)}`,
+        blob: await dataUrlToBlob(variant.dataUrl),
+      })));
+      await downloadFilesAsZip(
+        [{ name: `foto_asli.${imageExtension(originalImageSrc)}`, blob: originalBlob }, ...variantFiles],
+        `shopeeboost_semua_foto_${Date.now()}.zip`
+      );
+      onNotification('Semua Foto Berhasil Diunduh!', `${variants.length} hasil AI dan foto asli tersimpan dalam satu file ZIP.`);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'Foto gagal diunduh. Coba lagi.');
+    } finally {
+      setIsDownloadingAll(false);
+    }
   };
 
   const showOriginal = () => setIsShowingOriginal(true);
@@ -240,29 +266,40 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
             </div>
 
             {variants.length > 0 ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {variants.map((variant, index) => {
-                  const isSelected = selectedVariantId === variant.id;
-                  return (
-                    <button
-                      key={variant.id}
-                      type="button"
-                      onClick={() => selectVariant(variant)}
-                      aria-pressed={isSelected}
-                      className={`group relative overflow-hidden rounded-xl border-2 text-left transition ${isSelected ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/10' : 'border-slate-200 bg-white hover:border-slate-300'}`}
-                    >
-                      <div className="relative aspect-square overflow-hidden bg-slate-100">
-                        <img src={variant.dataUrl} alt={variant.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
-                        {isSelected && <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow"><Check className="h-4 w-4" /></span>}
-                      </div>
-                      <div className="p-2.5">
-                        <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-indigo-700">Konsep {index + 1}</span>
-                        <span className="block text-xs font-bold leading-snug text-slate-800">{variant.name}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {variants.map((variant, index) => {
+                    const isSelected = selectedVariantId === variant.id;
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => selectVariant(variant)}
+                        aria-pressed={isSelected}
+                        className={`group relative overflow-hidden rounded-xl border-2 text-left transition ${isSelected ? 'border-indigo-600 bg-indigo-50/50 ring-2 ring-indigo-500/10' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                      >
+                        <div className="relative aspect-square overflow-hidden bg-slate-100">
+                          <img src={variant.dataUrl} alt={variant.name} className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]" />
+                          {isSelected && <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow"><Check className="h-4 w-4" /></span>}
+                        </div>
+                        <div className="p-2.5">
+                          <span className="mb-1 block text-[10px] font-extrabold uppercase tracking-wide text-indigo-700">Konsep {index + 1}</span>
+                          <span className="block text-xs font-bold leading-snug text-slate-800">{variant.name}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadAllPhotos}
+                  disabled={isDownloadingAll}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-950 px-4 py-3 text-xs font-extrabold text-white transition hover:bg-indigo-900 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isDownloadingAll ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {isDownloadingAll ? 'Menyiapkan foto ZIP…' : `Unduh Semua Foto (${variants.length} AI + asli) — ZIP`}
+                </button>
+              </>
             ) : (
               <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
                 <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
@@ -283,6 +320,7 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
             )}
             {warningMessage && <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-900">{warningMessage}</p>}
             {errorMessage && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs leading-relaxed text-rose-800">{errorMessage}</p>}
+            {downloadError && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs leading-relaxed text-rose-800">{downloadError}</p>}
 
             {variants.length > 0 && (
               <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3.5 text-xs leading-relaxed text-emerald-950">
