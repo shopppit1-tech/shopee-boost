@@ -31,6 +31,42 @@ import { promoAudio } from '../utils/audioSynth';
 import { loadImage } from '../utils/bannerGenerator';
 import { apiUrl } from '../utils/api';
 
+function readVideoDuration(url: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const timeout = window.setTimeout(() => finish(new Error('Metadata durasi MP4 tidak terbaca. Coba rekam ulang.')), 10_000);
+    const finish = (error?: Error) => {
+      window.clearTimeout(timeout);
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      if (error) reject(error);
+      else if (Number.isFinite(video.duration) && video.duration > 0) resolve(video.duration);
+      else reject(new Error('MP4 tidak memiliki durasi yang valid. Coba rekam ulang.'));
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => finish();
+    video.onerror = () => finish(new Error('Browser tidak dapat membaca metadata MP4 hasil rekaman.'));
+    video.src = url;
+  });
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mimeType });
+}
+
 interface VideoPromoSectionProps {
   productImageSrc: string;
   analysisData: AnalysisResult;
@@ -368,8 +404,8 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
       }
 
       onNotification(
-        'Merekam Video 10 Detik Lengkap Suara...',
-        'Sedang menggabungkan video animasi HD, narasi suara AI, dan musik latar. Siap diupload langsung ke Shopee!'
+        'Merekam Video dengan Durasi Penuh...',
+        'Durasi ekspor mengikuti seluruh narasi AI agar suara tidak terpotong.'
       );
 
       const blob = await recordPromoVideo(
@@ -385,8 +421,25 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
         }
       );
 
-      // Determine proper file extension (.mp4 or .webm)
-      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+      if (blob.size > 20 * 1024 * 1024) {
+        throw new Error('Ukuran video melewati batas 20 MB. Kurangi durasi atau coba lagi.');
+      }
+      setRecordProgress(100);
+      onNotification(
+        'Mengonversi video ke MP4...',
+        'File rekaman diproses sementara menjadi H.264/AAC; salinan sementara di server dihapus setelah selesai.'
+      );
+      const response = await fetch(apiUrl('/api/convert-video'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoBase64: await blobToBase64(blob), mimeType: blob.type || 'video/webm' }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success || typeof result.videoBase64 !== 'string') {
+        throw new Error(result?.error || 'Server tidak berhasil menyiapkan MP4. Coba lagi sebentar.');
+      }
+      const mp4Blob = base64ToBlob(result.videoBase64, result.mimeType || 'video/mp4');
+      const ext = 'mp4';
       const cleanProductName = (analysisData.productNameDetected || 'produk')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -394,19 +447,26 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
       const filename = `video-shopee-${cleanProductName}-${aspectRatio === '9:16' ? 'story-9x16' : 'feed-1x1'}-dengan-suara.${ext}`;
 
       // Trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const url = URL.createObjectURL(mp4Blob);
+      try {
+        const duration = await readVideoDuration(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
-      onNotification(
-        'Video Berhasil Diunduh (Lengkap Suara)!',
-        'Video sudah memiliki suara narasi AI & musik. Langsung upload ke Shopee Video / TikTok tanpa perlu diedit lagi!'
-      );
+        onNotification(
+          'MP4 Berhasil Diunduh!',
+          `H.264/AAC, durasi ${duration.toFixed(1)} detik, seluruh narasi disertakan. Siap diunggah ke Shopee tanpa edit ulang.`
+        );
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        throw error;
+      }
     } catch (err: any) {
       console.error('Record error:', err);
       onNotification('Gagal merekam video', err.message || 'Silakan coba lagi');
@@ -647,7 +707,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#EE4D2D] to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>{isRecording ? `Merekam (${recordProgress}%)...` : 'Unduh Video (10s)'}</span>
+                <span>{isRecording ? `Menyiapkan video (${recordProgress}%)...` : 'Unduh MP4 Full Durasi'}</span>
               </button>
             </div>
           </div>
@@ -668,8 +728,9 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-800 leading-snug mt-1">
-                  <strong>Simpel & praktis:</strong> Video 10 detik ini sudah otomatis digabung dengan narasi suara AI Bahasa Indonesia & musik latar. Tidak perlu edit lagi di CapCut atau aplikasi lain — langsung unduh dan pasang di Shopee Video!
+                  <strong>Simpel & praktis:</strong> Gerak visual promosi 10 detik, lalu durasi diperpanjang otomatis sampai seluruh narasi AI Bahasa Indonesia selesai. MP4 H.264/AAC siap diunggah tanpa edit di CapCut.
                 </p>
+                <p className="mt-2 text-[10px] text-emerald-800">Format direkam sesuai browser lalu otomatis dikonversi di server menjadi MP4 H.264/AAC; seluruh narasi dipertahankan.</p>
               </div>
             </div>
 
@@ -687,7 +748,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Unduh Video Langsung Ada Suara (Siap Upload Shopee)</span>
+                  <span>Unduh MP4 dengan Suara (Siap Upload Shopee)</span>
                 </>
               )}
             </button>
