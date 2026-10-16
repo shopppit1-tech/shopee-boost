@@ -139,9 +139,9 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
               <Sparkles className="h-3.5 w-3.5" />
               <span>AI Edit Foto Produk</span>
             </div>
-            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Buat 3 Varian Foto Iklan</h2>
+            <h2 className="text-xl font-black tracking-tight sm:text-2xl">Buat 3 Versi Baru Foto Iklan</h2>
             <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-              AI mengolah foto asli menjadi tiga konsep visual yang berbeda. Produk tetap menjadi fokus—tanpa bingkai, kolase, atau tulisan tempelan.
+              AI membuat tiga pemotretan produk baru dengan sudut, komposisi, dan konteks berbeda—bukan sekadar ganti latar. Produk tetap dikenali, tanpa bingkai atau tulisan tempelan.
             </p>
           </div>
           <button

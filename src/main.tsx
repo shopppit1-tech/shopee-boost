@@ -1,4 +1,5 @@
 import {createRoot} from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 import App from './App.tsx';
 import './index.css';
 
@@ -13,16 +14,17 @@ setTimeout(() => {
   }
 }, 350);
 
-// Register service worker for PWA & Android APK installation
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
-      .then((registration) => {
-        console.log('Shopee Boost PWA Service Worker terdaftar:', registration.scope);
-      })
-      .catch((error) => {
-        console.warn('Shopee Boost PWA Service Worker error:', error);
+// Register once through the PWA plugin and check for a newer service worker immediately.
+registerSW({
+  immediate: true,
+  onRegisteredSW: (_serviceWorkerUrl, registration) => {
+    if (registration) {
+      void registration.update().catch((error) => {
+        console.warn('Shopee Boost PWA update check failed:', error);
       });
-  });
-}
+    }
+  },
+  onRegisterError: (error) => {
+    console.warn('Shopee Boost PWA Service Worker error:', error);
+  },
+});
