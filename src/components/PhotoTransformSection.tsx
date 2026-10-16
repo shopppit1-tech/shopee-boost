@@ -101,7 +101,7 @@ export const PhotoTransformSection: React.FC<PhotoTransformSectionProps> = ({
           }
         }
         if (resultPayload.status !== 'completed') {
-          throw new Error('Manus masih memproses foto. Coba lagi sebentar; prosesnya mungkin masih berjalan.');
+          return;
         }
       }
 
