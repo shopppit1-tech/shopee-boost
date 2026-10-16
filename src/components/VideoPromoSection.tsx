@@ -50,6 +50,23 @@ function readVideoDuration(url: string): Promise<number> {
   });
 }
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mimeType });
+}
+
 interface VideoPromoSectionProps {
   productImageSrc: string;
   analysisData: AnalysisResult;
@@ -65,10 +82,6 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
   initialStoreName = 'Toko Shopee Official',
   initialDiscount = '50%',
 }) => {
-  const supportsDirectMp4 = typeof MediaRecorder !== 'undefined' && [
-    'video/mp4;codecs=avc1,mp4a.40.2',
-    'video/mp4',
-  ].some((mimeType) => MediaRecorder.isTypeSupported(mimeType));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
@@ -408,10 +421,24 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
         }
       );
 
-      const mimeType = blob.type.toLowerCase();
-      if (!mimeType.includes('video/mp4')) {
-        throw new Error('Browser ini hanya menghasilkan WebM, bukan MP4. Gunakan browser yang mendukung rekaman MP4 agar bisa langsung diunggah ke Shopee.');
+      if (blob.size > 20 * 1024 * 1024) {
+        throw new Error('Ukuran video melewati batas 20 MB. Kurangi durasi atau coba lagi.');
       }
+      setRecordProgress(100);
+      onNotification(
+        'Mengonversi video ke MP4...',
+        'File rekaman diproses sementara menjadi H.264/AAC; salinan sementara di server dihapus setelah selesai.'
+      );
+      const response = await fetch(apiUrl('/api/convert-video'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoBase64: await blobToBase64(blob), mimeType: blob.type || 'video/webm' }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success || typeof result.videoBase64 !== 'string') {
+        throw new Error(result?.error || 'Server tidak berhasil menyiapkan MP4. Coba lagi sebentar.');
+      }
+      const mp4Blob = base64ToBlob(result.videoBase64, result.mimeType || 'video/mp4');
       const ext = 'mp4';
       const cleanProductName = (analysisData.productNameDetected || 'produk')
         .toLowerCase()
@@ -420,7 +447,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
       const filename = `video-shopee-${cleanProductName}-${aspectRatio === '9:16' ? 'story-9x16' : 'feed-1x1'}-dengan-suara.${ext}`;
 
       // Trigger download
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(mp4Blob);
       try {
         const duration = await readVideoDuration(url);
         const a = document.createElement('a');
@@ -676,11 +703,11 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
               <button
                 type="button"
                 onClick={handleDownloadVideo}
-                disabled={isRecording || !supportsDirectMp4}
+                disabled={isRecording}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#EE4D2D] to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>{isRecording ? `Merekam (${recordProgress}%)...` : supportsDirectMp4 ? 'Unduh MP4 Full Durasi' : 'MP4 tidak didukung browser'}</span>
+                <span>{isRecording ? `Menyiapkan video (${recordProgress}%)...` : 'Unduh MP4 Full Durasi'}</span>
               </button>
             </div>
           </div>
@@ -703,14 +730,14 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
                 <p className="text-[11px] text-emerald-800 leading-snug mt-1">
                   <strong>Simpel & praktis:</strong> Gerak visual promosi 10 detik, lalu durasi diperpanjang otomatis sampai seluruh narasi AI Bahasa Indonesia selesai. MP4 H.264/AAC siap diunggah tanpa edit di CapCut.
                 </p>
-                {!supportsDirectMp4 && <p role="status" className="mt-2 rounded-lg bg-amber-100 px-2.5 py-2 text-[11px] font-semibold text-amber-950">Browser ini tidak punya encoder MP4 langsung. Buka aplikasi dengan browser yang mendukung MP4 (misalnya Safari terbaru) agar unduhan siap Shopee.</p>}
+                <p className="mt-2 text-[10px] text-emerald-800">Format direkam sesuai browser lalu otomatis dikonversi di server menjadi MP4 H.264/AAC; seluruh narasi dipertahankan.</p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleDownloadVideo}
-              disabled={isRecording || !supportsDirectMp4}
+              disabled={isRecording}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#EE4D2D] via-orange-600 to-red-600 hover:from-[#d43f20] hover:to-red-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-98 disabled:opacity-50"
             >
               {isRecording ? (
@@ -721,7 +748,7 @@ export const VideoPromoSection: React.FC<VideoPromoSectionProps> = ({
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>{supportsDirectMp4 ? 'Unduh MP4 dengan Suara (Siap Upload Shopee)' : 'MP4 perlu browser yang mendukung encoder MP4'}</span>
+                  <span>Unduh MP4 dengan Suara (Siap Upload Shopee)</span>
                 </>
               )}
             </button>
